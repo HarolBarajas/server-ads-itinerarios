@@ -186,7 +186,7 @@ export function funcionesSockets(io: SocketIOServer) {
     //biblioteca (jsonwebtoken)
     const URL = Bun.env.HOST+'/user' || "http://localhost:4000/user";
     try {
-      const res = await fetch("http://localhost:4000/user", {
+      const res = await fetch(URL, {
         //const res = await fetch("https://harol-lovers.up.railway.app/user", {
         method: "GET",
 
@@ -262,12 +262,26 @@ export function funcionesSockets(io: SocketIOServer) {
             }
           });
 
+          const Msg = await mensajeRepo.findOne({
+            where:[
+              { emisor: {correo: amigo.userID}, receptor: { correo: userID } }, //El ultimo mensaje es de mi amigo
+              { receptor: { correo: amigo.userID }, emisor: { correo: userID } } //El ultimo mensaje es mio
+            ],
+            order: {
+              horaMensaje: 'DESC'
+            }
+          });
+
+          const ultimoMsg = Msg || null;
+
           usersMap.push({
             userID: amigo.userID,
             username: amigo.username,
             foto_url: amigo.foto_url,
             connected: isFriendOnline,
-            messages: [],
+            messages: ultimoMsg?.text,
+            lastMessage: ultimoMsg ? ultimoMsg.text : null,
+            lastMessageHora: ultimoMsg ? ultimoMsg.horaMensaje : null,
             unreadCount: sinLeer
           })
         }
@@ -337,6 +351,7 @@ export function funcionesSockets(io: SocketIOServer) {
     });
 
     socket.on('mark messages received', async ({ withUserID }) => {
+      // console.log(`${withUserID} marco un mensaje como recibido`);
       const repo = pgdb.getRepository(Mensaje);
 
       await repo.createQueryBuilder()
